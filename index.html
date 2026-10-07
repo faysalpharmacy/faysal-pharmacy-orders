@@ -1,55 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
   <title>Faysal Pharmacy</title>
 
   <link rel="stylesheet" href="style.css">
+
 </head>
 
 <body>
 
   <header>
-    <h1>Faysal Pharmacy</h1>
-    <p>Multan Road, Abdul Hakim</p>
+
+    <div>
+      <h1>Faysal Pharmacy</h1>
+      <p>Multan Road, Abdul Hakim</p>
+    </div>
+
+    <div
+      id="connectionStatus"
+      style="
+        font-size:11px;
+        color:#71847a;
+        white-space:nowrap;
+      "
+    >
+      ● Connecting
+    </div>
+
   </header>
 
+
   <nav>
-    <button onclick="showPage('demandPage')">Demand</button>
-    <button onclick="showPage('orderPage')">Purchase Orders</button>
+
+    <button
+      id="demandTab"
+      onclick="showPage('demandPage')"
+    >
+      Demand
+    </button>
+
+    <button
+      id="orderTab"
+      onclick="showPage('orderPage')"
+    >
+      Purchase Orders
+    </button>
+
   </nav>
+
 
 
   <!-- DEMAND PAGE -->
 
-  <section id="demandPage" class="page">
+  <section
+    id="demandPage"
+    class="page"
+  >
 
     <div class="card">
 
       <h2>Add Demand</h2>
 
       <label>Medicine Name</label>
+
       <input
         id="medicineName"
         type="text"
         placeholder="Medicine name"
       >
 
+
       <label>Company</label>
+
       <input
         id="companyName"
         type="text"
         placeholder="Optional"
       >
 
+
       <label>Distributor</label>
+
       <input
         id="distributorName"
         type="text"
         placeholder="Optional"
       >
+
 
       <label>Demand Type</label>
 
@@ -66,12 +111,13 @@
         <button
           id="lowButton"
           class="type"
-          onclick="selectType('low')"
+          onclick="selectType('low_stock')"
         >
           Low Stock
         </button>
 
       </div>
+
 
       <button
         class="mainButton"
@@ -86,8 +132,13 @@
     <div class="sectionTitle">
 
       <div>
+
         <h2>Current Demands</h2>
-        <span id="demandCount">0 items</span>
+
+        <span id="demandCount">
+          0 items
+        </span>
+
       </div>
 
       <button onclick="clearDemands()">
@@ -105,11 +156,15 @@
 
   <!-- PURCHASE ORDER PAGE -->
 
-  <section id="orderPage" class="page hidden">
+  <section
+    id="orderPage"
+    class="page hidden"
+  >
 
     <div class="card">
 
       <h2>New Purchase Order</h2>
+
 
       <label>Supplier</label>
 
@@ -140,10 +195,13 @@
 
       <h3>Order Items</h3>
 
+
       <div id="orderItems">
+
         <p class="empty">
           No medicines added.
         </p>
+
       </div>
 
 
@@ -176,8 +234,13 @@
     <div class="sectionTitle">
 
       <div>
+
         <h2>Previous Orders</h2>
-        <span id="orderCount">0 orders</span>
+
+        <span id="orderCount">
+          0 orders
+        </span>
+
       </div>
 
     </div>
@@ -221,7 +284,15 @@
   <div id="message"></div>
 
 
+  <!-- SUPABASE LIBRARY -->
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+
+  <!-- YOUR APP -->
+
   <script src="app.js"></script>
+
 
 </body>
 </html>
