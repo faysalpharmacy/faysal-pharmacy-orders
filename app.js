@@ -1,122 +1,202 @@
-/* =========================================
+/* =====================================================
    FAYSAL PHARMACY
-   SIMPLE GITHUB VERSION
-========================================= */
+   SUPABASE CLOUD VERSION
+===================================================== */
 
 
-var demands = [];
-var orders = [];
+/* =====================================================
+   SUPABASE CONNECTION
+===================================================== */
 
-var selectedType = "ended";
+const SUPABASE_URL =
+  "https://gfmgatbqbjyjfklbxoli.supabase.co";
 
-var orderItems = [];
-
-
-/* =========================================
-   START
-========================================= */
-
-document.addEventListener("DOMContentLoaded", function () {
-
-  loadData();
-
-  setToday();
-
-  renderDemands();
-
-  renderOrders();
-
-  renderOrderItems();
-
-});
+const SUPABASE_KEY =
+  "sb_publishable_G6suoz5uwyCWHOgqTsqL6w_n0B1U4F8";
 
 
-/* =========================================
+const db =
+  window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+  );
+
+
+/* =====================================================
+   APP STATE
+===================================================== */
+
+let demands = [];
+
+let orders = [];
+
+let orderItems = [];
+
+let selectedType = "ended";
+
+let messageTimer;
+
+
+/* =====================================================
+   START APP
+===================================================== */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  async function () {
+
+    setToday();
+
+    updateTabs();
+
+    await loadDemands();
+
+    await loadOrders();
+
+    startRealtime();
+
+  }
+);
+
+
+/* =====================================================
    PAGE SWITCHING
-========================================= */
+===================================================== */
 
 function showPage(pageId) {
 
-  var pages =
-    document.querySelectorAll(".page");
+  document
+    .querySelectorAll(".page")
+    .forEach(function(page) {
 
-  pages.forEach(function (page) {
+      page.classList.add("hidden");
 
-    page.classList.add("hidden");
-
-  });
+    });
 
 
-  var selected =
+  const page =
     document.getElementById(pageId);
 
 
-  if (selected) {
+  if (page) {
 
-    selected.classList.remove("hidden");
+    page.classList.remove("hidden");
+
+  }
+
+
+  updateTabs(pageId);
+
+}
+
+
+/* =====================================================
+   TAB STATUS
+===================================================== */
+
+function updateTabs(pageId) {
+
+  const demandTab =
+    document.getElementById("demandTab");
+
+  const orderTab =
+    document.getElementById("orderTab");
+
+
+  if (!demandTab || !orderTab) {
+    return;
+  }
+
+
+  demandTab.classList.remove("active");
+
+  orderTab.classList.remove("active");
+
+
+  if (
+    !pageId ||
+    pageId === "demandPage"
+  ) {
+
+    demandTab.classList.add("active");
+
+  } else {
+
+    orderTab.classList.add("active");
 
   }
 
 }
 
 
-/* =========================================
+/* =====================================================
    DEMAND TYPE
-========================================= */
+===================================================== */
 
 function selectType(type) {
 
   selectedType = type;
 
 
-  document
-    .getElementById("endedButton")
-    .classList.remove("active");
+  const endedButton =
+    document.getElementById(
+      "endedButton"
+    );
 
 
-  document
-    .getElementById("lowButton")
-    .classList.remove("active");
+  const lowButton =
+    document.getElementById(
+      "lowButton"
+    );
+
+
+  endedButton.classList.remove(
+    "active"
+  );
+
+  lowButton.classList.remove(
+    "active"
+  );
 
 
   if (type === "ended") {
 
-    document
-      .getElementById("endedButton")
-      .classList.add("active");
+    endedButton.classList.add(
+      "active"
+    );
 
   } else {
 
-    document
-      .getElementById("lowButton")
-      .classList.add("active");
+    lowButton.classList.add(
+      "active"
+    );
 
   }
 
 }
 
 
-/* =========================================
+/* =====================================================
    ADD DEMAND
-========================================= */
+===================================================== */
 
-function addDemand() {
+async function addDemand() {
 
-  var medicine =
+  const medicine =
     document
       .getElementById("medicineName")
       .value
       .trim();
 
 
-  var company =
+  const company =
     document
       .getElementById("companyName")
       .value
       .trim();
 
 
-  var distributor =
+  const distributor =
     document
       .getElementById("distributorName")
       .value
@@ -134,75 +214,146 @@ function addDemand() {
   }
 
 
-  var demand = {
+  const result =
+    await db
+      .from("demands")
+      .insert({
 
-    id: Date.now(),
+        medicine_name:
+          medicine,
 
-    medicine: medicine,
+        company_name:
+          company || null,
 
-    company: company,
+        distributor_name:
+          distributor || null,
 
-    distributor: distributor,
+        demand_type:
+          selectedType
 
-    type: selectedType
-
-  };
-
-
-  demands.unshift(demand);
-
-
-  saveData();
-
-  renderDemands();
+      });
 
 
-  document.getElementById(
-    "medicineName"
-  ).value = "";
+  if (result.error) {
+
+    console.error(
+      "ADD DEMAND ERROR:",
+      result.error
+    );
 
 
-  document.getElementById(
-    "companyName"
-  ).value = "";
+    showMessage(
+      "Could not add demand."
+    );
+
+    return;
+
+  }
 
 
-  document.getElementById(
-    "distributorName"
-  ).value = "";
+  document
+    .getElementById("medicineName")
+    .value = "";
+
+
+  document
+    .getElementById("companyName")
+    .value = "";
+
+
+  document
+    .getElementById("distributorName")
+    .value = "";
 
 
   showMessage(
-    "Demand added successfully."
+    "Demand added."
   );
 
 }
 
 
-/* =========================================
+/* =====================================================
+   LOAD DEMANDS
+===================================================== */
+
+async function loadDemands() {
+
+  const result =
+    await db
+      .from("demands")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+
+  if (result.error) {
+
+    console.error(
+      "LOAD DEMANDS ERROR:",
+      result.error
+    );
+
+
+    setConnectionStatus(
+      false
+    );
+
+
+    showMessage(
+      "Could not load demands."
+    );
+
+    return;
+
+  }
+
+
+  demands =
+    result.data || [];
+
+
+  renderDemands();
+
+}
+
+
+/* =====================================================
    RENDER DEMANDS
-========================================= */
+===================================================== */
 
 function renderDemands() {
 
-  var container =
-    document.getElementById("demandList");
+  const list =
+    document.getElementById(
+      "demandList"
+    );
 
 
-  var count =
-    document.getElementById("demandCount");
+  const count =
+    document.getElementById(
+      "demandCount"
+    );
 
 
   count.textContent =
     demands.length +
-    (demands.length === 1
-      ? " item"
-      : " items");
+    (
+      demands.length === 1
+        ? " item"
+        : " items"
+    );
 
 
-  if (demands.length === 0) {
+  if (
+    demands.length === 0
+  ) {
 
-    container.innerHTML =
+    list.innerHTML =
       '<div class="item empty">' +
       'No current demands.' +
       '</div>';
@@ -212,101 +363,150 @@ function renderDemands() {
   }
 
 
-  container.innerHTML = "";
+  list.innerHTML = "";
 
 
-  demands.forEach(function (demand) {
+  demands.forEach(
+    function(demand) {
 
-    var div =
-      document.createElement("div");
-
-
-    div.className = "item";
-
-
-    var badgeClass =
-      demand.type === "ended"
-        ? "ended"
-        : "low";
+      const div =
+        document.createElement(
+          "div"
+        );
 
 
-    var badgeText =
-      demand.type === "ended"
-        ? "ENDED"
-        : "LOW STOCK";
+      div.className =
+        "item";
 
 
-    div.innerHTML =
-
-      '<div class="itemName">' +
-      escapeHtml(demand.medicine) +
-      '</div>' +
-
-      (
-        demand.company
-          ? '<div class="meta">Company: ' +
-            escapeHtml(demand.company) +
-            '</div>'
-          : ''
-      ) +
-
-      (
-        demand.distributor
-          ? '<div class="meta">Distributor: ' +
-            escapeHtml(demand.distributor) +
-            '</div>'
-          : ''
-      ) +
-
-      '<span class="badge ' +
-      badgeClass +
-      '">' +
-      badgeText +
-      '</span>' +
-
-      '<div class="actions">' +
-
-      '<button class="delete" ' +
-      'onclick="deleteDemand(' +
-      demand.id +
-      ')">' +
-      'Delete' +
-      '</button>' +
-
-      '<button class="orderButton" ' +
-      'onclick="addDemandToOrder(' +
-      demand.id +
-      ')">' +
-      'Add to Order' +
-      '</button>' +
-
-      '</div>';
+      const badgeClass =
+        demand.demand_type === "ended"
+          ? "ended"
+          : "low";
 
 
-    container.appendChild(div);
+      const badgeText =
+        demand.demand_type === "ended"
+          ? "ENDED"
+          : "LOW STOCK";
 
-  });
+
+      div.innerHTML =
+
+        '<div class="itemName">' +
+
+        escapeHtml(
+          demand.medicine_name
+        ) +
+
+        '</div>' +
+
+
+        (
+          demand.company_name
+
+            ? '<div class="meta">' +
+              'Company: ' +
+              escapeHtml(
+                demand.company_name
+              ) +
+              '</div>'
+
+            : ''
+        ) +
+
+
+        (
+          demand.distributor_name
+
+            ? '<div class="meta">' +
+              'Distributor: ' +
+              escapeHtml(
+                demand.distributor_name
+              ) +
+              '</div>'
+
+            : ''
+        ) +
+
+
+        '<span class="badge ' +
+        badgeClass +
+        '">' +
+
+        badgeText +
+
+        '</span>' +
+
+
+        '<div class="actions">' +
+
+
+        '<button ' +
+        'class="orderButton" ' +
+        'onclick="addDemandToOrder(' +
+        demand.id +
+        ')">' +
+
+        'Add to Order' +
+
+        '</button>' +
+
+
+        '<button ' +
+        'class="delete" ' +
+        'onclick="deleteDemand(' +
+        demand.id +
+        ')">' +
+
+        'Delete' +
+
+        '</button>' +
+
+
+        '</div>';
+
+
+      list.appendChild(div);
+
+    }
+  );
 
 }
 
 
-/* =========================================
+/* =====================================================
    DELETE DEMAND
-========================================= */
+===================================================== */
 
-function deleteDemand(id) {
+async function deleteDemand(id) {
 
-  demands =
-    demands.filter(function (item) {
+  const result =
+    await db
+      .from("demands")
+      .delete()
+      .eq(
+        "id",
+        id
+      );
 
-      return item.id !== id;
 
-    });
+  if (result.error) {
+
+    console.error(
+      "DELETE DEMAND ERROR:",
+      result.error
+    );
 
 
-  saveData();
+    showMessage(
+      "Could not delete demand."
+    );
 
-  renderDemands();
+    return;
+
+  }
+
 
   showMessage(
     "Demand deleted."
@@ -315,16 +515,18 @@ function deleteDemand(id) {
 }
 
 
-/* =========================================
-   CLEAR DEMANDS
-========================================= */
+/* =====================================================
+   CLEAR ALL DEMANDS
+===================================================== */
 
-function clearDemands() {
+async function clearDemands() {
 
-  if (demands.length === 0) {
+  if (
+    demands.length === 0
+  ) {
 
     showMessage(
-      "There are no demands."
+      "No demands."
     );
 
     return;
@@ -343,11 +545,32 @@ function clearDemands() {
   }
 
 
-  demands = [];
+  const result =
+    await db
+      .from("demands")
+      .delete()
+      .neq(
+        "id",
+        0
+      );
 
-  saveData();
 
-  renderDemands();
+  if (result.error) {
+
+    console.error(
+      "CLEAR DEMANDS ERROR:",
+      result.error
+    );
+
+
+    showMessage(
+      "Could not clear demands."
+    );
+
+    return;
+
+  }
+
 
   showMessage(
     "All demands cleared."
@@ -356,38 +579,50 @@ function clearDemands() {
 }
 
 
-/* =========================================
-   ADD DEMAND TO ORDER
-========================================= */
+/* =====================================================
+   ADD DEMAND TO PURCHASE ORDER
+===================================================== */
 
 function addDemandToOrder(id) {
 
-  var demand =
-    demands.find(function (item) {
+  const demand =
+    demands.find(
+      function(item) {
 
-      return item.id === id;
+        return item.id === id;
 
-    });
-
-
-  if (!demand) return;
-
-
-  var exists =
-    orderItems.some(function (item) {
-
-      return item.demandId === id;
-
-    });
-
-
-  if (exists) {
-
-    showMessage(
-      "This medicine is already in the order."
+      }
     );
 
-    showPage("orderPage");
+
+  if (!demand) {
+
+    return;
+
+  }
+
+
+  const alreadyAdded =
+    orderItems.some(
+      function(item) {
+
+        return item.demandId === id;
+
+      }
+    );
+
+
+  if (alreadyAdded) {
+
+    showMessage(
+      "Already added to order."
+    );
+
+
+    showPage(
+      "orderPage"
+    );
+
 
     return;
 
@@ -396,63 +631,87 @@ function addDemandToOrder(id) {
 
   orderItems.push({
 
-    id: Date.now(),
+    localId:
+      Date.now() +
+      Math.random(),
 
-    demandId: id,
+    demandId:
+      demand.id,
 
-    medicine: demand.medicine,
+    medicine:
+      demand.medicine_name,
 
-    company: demand.company,
+    company:
+      demand.company_name || "",
 
-    quantity: 1
+    quantity:
+      1
 
   });
 
 
   renderOrderItems();
 
-  showPage("orderPage");
+
+  showPage(
+    "orderPage"
+  );
+
 
   showMessage(
-    "Added to purchase order."
+    "Added to order."
   );
 
 }
 
 
-/* =========================================
+/* =====================================================
    MANUAL ORDER ITEM
-========================================= */
+===================================================== */
 
 function addManualItem() {
 
-  var medicine =
+  const medicine =
     prompt(
       "Enter medicine name:"
     );
 
 
-  if (!medicine) return;
+  if (!medicine) {
+
+    return;
+
+  }
 
 
-  var clean =
+  const cleanMedicine =
     medicine.trim();
 
 
-  if (!clean) return;
+  if (!cleanMedicine) {
+
+    return;
+
+  }
 
 
   orderItems.push({
 
-    id: Date.now(),
+    localId:
+      Date.now() +
+      Math.random(),
 
-    demandId: null,
+    demandId:
+      null,
 
-    medicine: clean,
+    medicine:
+      cleanMedicine,
 
-    company: "",
+    company:
+      "",
 
-    quantity: 1
+    quantity:
+      1
 
   });
 
@@ -462,21 +721,23 @@ function addManualItem() {
 }
 
 
-/* =========================================
+/* =====================================================
    RENDER ORDER ITEMS
-========================================= */
+===================================================== */
 
 function renderOrderItems() {
 
-  var container =
+  const list =
     document.getElementById(
       "orderItems"
     );
 
 
-  if (orderItems.length === 0) {
+  if (
+    orderItems.length === 0
+  ) {
 
-    container.innerHTML =
+    list.innerHTML =
       '<p class="empty">' +
       'No medicines added.' +
       '</p>';
@@ -486,114 +747,136 @@ function renderOrderItems() {
   }
 
 
-  container.innerHTML = "";
+  list.innerHTML = "";
 
 
-  orderItems.forEach(function (item) {
+  orderItems.forEach(
+    function(item) {
 
-    var div =
-      document.createElement("div");
-
-
-    div.className =
-      "orderItem";
-
-
-    div.innerHTML =
-
-      '<div class="orderItemTop">' +
-
-      '<div>' +
-
-      '<div class="orderMedicine">' +
-      escapeHtml(item.medicine) +
-      '</div>' +
-
-      (
-        item.company
-          ? '<div class="meta">' +
-            escapeHtml(item.company) +
-            '</div>'
-          : ''
-      ) +
-
-      '</div>' +
-
-      '<button class="delete" ' +
-      'onclick="removeOrderItem(' +
-      item.id +
-      ')">' +
-      'Remove' +
-      '</button>' +
-
-      '</div>' +
-
-      '<label>Quantity</label>' +
-
-      '<input ' +
-      'class="quantity" ' +
-      'type="number" ' +
-      'min="1" ' +
-      'value="' +
-      item.quantity +
-      '" ' +
-      'onchange="changeQuantity(' +
-      item.id +
-      ', this.value)">' ;
+      const div =
+        document.createElement(
+          "div"
+        );
 
 
-    container.appendChild(div);
+      div.className =
+        "orderItem";
 
-  });
+
+      div.innerHTML =
+
+        '<div class="orderItemTop">' +
+
+
+        '<div class="orderMedicine">' +
+
+        escapeHtml(
+          item.medicine
+        ) +
+
+
+        (
+          item.company
+
+            ? '<div class="meta">' +
+              escapeHtml(
+                item.company
+              ) +
+              '</div>'
+
+            : ''
+        ) +
+
+
+        '</div>' +
+
+
+        '<button ' +
+        'class="delete" ' +
+        'onclick="removeOrderItem(' +
+        item.localId +
+        ')">' +
+
+        'Remove' +
+
+        '</button>' +
+
+
+        '</div>' +
+
+
+        '<label>Quantity</label>' +
+
+
+        '<input ' +
+        'class="quantity" ' +
+        'type="number" ' +
+        'min="1" ' +
+        'value="' +
+        item.quantity +
+        '" ' +
+        'onchange="changeQuantity(' +
+        item.localId +
+        ', this.value)">';
+
+
+      list.appendChild(div);
+
+    }
+  );
 
 }
 
 
-/* =========================================
+/* =====================================================
    CHANGE QUANTITY
-========================================= */
+===================================================== */
 
-function changeQuantity(id, value) {
+function changeQuantity(
+  id,
+  value
+) {
 
-  var item =
-    orderItems.find(function (item) {
+  const item =
+    orderItems.find(
+      function(item) {
 
-      return item.id === id;
+        return item.localId === id;
 
-    });
-
-
-  if (!item) return;
-
-
-  var quantity =
-    parseInt(value);
+      }
+    );
 
 
-  if (!quantity || quantity < 1) {
+  if (!item) {
 
-    quantity = 1;
+    return;
 
   }
 
 
-  item.quantity = quantity;
+  item.quantity =
+    Math.max(
+      1,
+      parseInt(value) || 1
+    );
 
 }
 
 
-/* =========================================
+/* =====================================================
    REMOVE ORDER ITEM
-========================================= */
+===================================================== */
 
 function removeOrderItem(id) {
 
   orderItems =
-    orderItems.filter(function (item) {
+    orderItems.filter(
+      function(item) {
 
-      return item.id !== id;
+        return item.localId !== id;
 
-    });
+      }
+    );
 
 
   renderOrderItems();
@@ -601,44 +884,41 @@ function removeOrderItem(id) {
 }
 
 
-/* =========================================
+/* =====================================================
    DATE
-========================================= */
+===================================================== */
 
 function setToday() {
 
-  var input =
+  const input =
     document.getElementById(
       "bookingDate"
     );
 
 
-  var today =
+  const today =
     new Date();
 
 
-  var year =
-    today.getFullYear();
+  input.value =
+    today.getFullYear() +
+    "-" +
 
-
-  var month =
     String(
       today.getMonth() + 1
-    ).padStart(2, "0");
+    ).padStart(
+      2,
+      "0"
+    ) +
 
+    "-" +
 
-  var day =
     String(
       today.getDate()
-    ).padStart(2, "0");
-
-
-  input.value =
-    year +
-    "-" +
-    month +
-    "-" +
-    day;
+    ).padStart(
+      2,
+      "0"
+    );
 
 
   updateDay();
@@ -646,26 +926,32 @@ function setToday() {
 }
 
 
-/* =========================================
-   DAY
-========================================= */
+/* =====================================================
+   UPDATE BOOKING DAY
+===================================================== */
 
 function updateDay() {
 
-  var value =
-    document.getElementById(
-      "bookingDate"
-    ).value;
+  const value =
+    document
+      .getElementById(
+        "bookingDate"
+      )
+      .value;
 
 
-  if (!value) return;
+  if (!value) {
+
+    return;
+
+  }
 
 
-  var parts =
+  const parts =
     value.split("-");
 
 
-  var date =
+  const date =
     new Date(
       Number(parts[0]),
       Number(parts[1]) - 1,
@@ -673,9 +959,12 @@ function updateDay() {
     );
 
 
-  document.getElementById(
-    "bookingDay"
-  ).value =
+  document
+    .getElementById(
+      "bookingDay"
+    )
+    .value =
+
     date.toLocaleDateString(
       "en-US",
       {
@@ -686,19 +975,19 @@ function updateDay() {
 }
 
 
-/* =========================================
+/* =====================================================
    DEMAND SELECTOR
-========================================= */
+===================================================== */
 
 function openDemandSelector() {
 
-  var modal =
+  const modal =
     document.getElementById(
       "demandModal"
     );
 
 
-  var list =
+  const list =
     document.getElementById(
       "selectorList"
     );
@@ -707,7 +996,9 @@ function openDemandSelector() {
   list.innerHTML = "";
 
 
-  if (demands.length === 0) {
+  if (
+    demands.length === 0
+  ) {
 
     list.innerHTML =
       '<p class="empty">' +
@@ -717,58 +1008,75 @@ function openDemandSelector() {
   }
 
 
-  demands.forEach(function (demand) {
+  demands.forEach(
+    function(demand) {
 
-    var button =
-      document.createElement(
-        "button"
-      );
-
-
-    button.className =
-      "selectorItem";
-
-
-    button.innerHTML =
-
-      '<strong>' +
-      escapeHtml(demand.medicine) +
-      '</strong>' +
-
-      '<small>' +
-
-      (
-        demand.company
-          ? escapeHtml(demand.company)
-          : ''
-      ) +
-
-      ' — ' +
-
-      (
-        demand.type === "ended"
-          ? "Ended"
-          : "Low Stock"
-      ) +
-
-      '</small>';
-
-
-    button.onclick =
-      function () {
-
-        addDemandToOrder(
-          demand.id
+      const button =
+        document.createElement(
+          "button"
         );
 
-        closeDemandSelector();
 
-      };
+      button.className =
+        "selectorItem";
 
 
-    list.appendChild(button);
+      button.innerHTML =
 
-  });
+        '<strong>' +
+
+        escapeHtml(
+          demand.medicine_name
+        ) +
+
+        '</strong>' +
+
+
+        '<small>' +
+
+        (
+          demand.company_name
+
+            ? escapeHtml(
+                demand.company_name
+              ) +
+              " — "
+
+            : ''
+        ) +
+
+
+        (
+          demand.demand_type === "ended"
+
+            ? "Ended"
+
+            : "Low Stock"
+
+        ) +
+
+        '</small>';
+
+
+      button.onclick =
+        function() {
+
+          addDemandToOrder(
+            demand.id
+          );
+
+
+          closeDemandSelector();
+
+        };
+
+
+      list.appendChild(
+        button
+      );
+
+    }
+  );
 
 
   modal.classList.remove(
@@ -778,9 +1086,9 @@ function openDemandSelector() {
 }
 
 
-/* =========================================
-   CLOSE SELECTOR
-========================================= */
+/* =====================================================
+   CLOSE DEMAND SELECTOR
+===================================================== */
 
 function closeDemandSelector() {
 
@@ -795,13 +1103,13 @@ function closeDemandSelector() {
 }
 
 
-/* =========================================
-   CREATE ORDER
-========================================= */
+/* =====================================================
+   CREATE PURCHASE ORDER
+===================================================== */
 
-function createOrder() {
+async function createOrder() {
 
-  var supplier =
+  const supplier =
     document
       .getElementById(
         "supplierName"
@@ -810,7 +1118,7 @@ function createOrder() {
       .trim();
 
 
-  var date =
+  const date =
     document
       .getElementById(
         "bookingDate"
@@ -818,7 +1126,7 @@ function createOrder() {
       .value;
 
 
-  var day =
+  const day =
     document
       .getElementById(
         "bookingDay"
@@ -837,7 +1145,9 @@ function createOrder() {
   }
 
 
-  if (orderItems.length === 0) {
+  if (
+    orderItems.length === 0
+  ) {
 
     showMessage(
       "Add at least one medicine."
@@ -848,85 +1158,194 @@ function createOrder() {
   }
 
 
-  var order = {
+  /*
+    STEP 1:
+    Create order
+  */
 
-    id: Date.now(),
+  const orderResult =
+    await db
+      .from("orders")
+      .insert({
 
-    supplier: supplier,
+        booking_date:
+          date,
 
-    date: date,
+        booking_day:
+          day,
 
-    day: day,
+        supplier_name:
+          supplier
 
-    items: orderItems.map(
-      function (item) {
+      })
+      .select()
+      .single();
+
+
+  if (
+    orderResult.error
+  ) {
+
+    console.error(
+      "CREATE ORDER ERROR:",
+      orderResult.error
+    );
+
+
+    showMessage(
+      "Could not create order."
+    );
+
+    return;
+
+  }
+
+
+  const orderId =
+    orderResult.data.id;
+
+
+  /*
+    STEP 2:
+    Create order items
+  */
+
+  const rows =
+    orderItems.map(
+      function(item) {
 
         return {
 
-          medicine:
+          order_id:
+            orderId,
+
+          demand_id:
+            item.demandId,
+
+          medicine_name:
             item.medicine,
 
-          company:
-            item.company,
+          company_name:
+            item.company || null,
 
           quantity:
-            item.quantity,
-
-          demandId:
-            item.demandId
+            Number(
+              item.quantity
+            )
 
         };
 
       }
-    )
-
-  };
+    );
 
 
-  orders.unshift(order);
+  const itemResult =
+    await db
+      .from("order_items")
+      .insert(
+        rows
+      );
+
+
+  if (
+    itemResult.error
+  ) {
+
+    console.error(
+      "ORDER ITEMS ERROR:",
+      itemResult.error
+    );
+
+
+    /*
+      Roll back the order
+    */
+
+    await db
+      .from("orders")
+      .delete()
+      .eq(
+        "id",
+        orderId
+      );
+
+
+    showMessage(
+      "Could not save order items."
+    );
+
+    return;
+
+  }
 
 
   /*
-    Remove demands included
-    in the purchase order.
+    STEP 3:
+    Remove demands that were ordered
   */
 
-  orderItems.forEach(
-    function (item) {
+  const demandIds =
+    orderItems
+      .map(
+        function(item) {
 
-      if (item.demandId) {
+          return item.demandId;
 
-        demands =
-          demands.filter(
-            function (demand) {
+        }
+      )
+      .filter(
+        function(id) {
 
-              return demand.id !==
-                item.demandId;
+          return id !== null;
 
-            }
-          );
+        }
+      );
 
-      }
+
+  if (
+    demandIds.length > 0
+  ) {
+
+    const deleteResult =
+      await db
+        .from("demands")
+        .delete()
+        .in(
+          "id",
+          demandIds
+        );
+
+
+    if (
+      deleteResult.error
+    ) {
+
+      console.error(
+        "DEMAND DELETE ERROR:",
+        deleteResult.error
+      );
 
     }
-  );
 
+  }
+
+
+  /*
+    STEP 4:
+    Clear local order builder
+  */
 
   orderItems = [];
 
 
-  saveData();
-
-  renderDemands();
-
-  renderOrders();
-
   renderOrderItems();
 
 
-  document.getElementById(
-    "supplierName"
-  ).value = "";
+  document
+    .getElementById(
+      "supplierName"
+    )
+    .value = "";
 
 
   showMessage(
@@ -936,19 +1355,73 @@ function createOrder() {
 }
 
 
-/* =========================================
-   RENDER ORDERS
-========================================= */
+/* =====================================================
+   LOAD PURCHASE ORDERS
+===================================================== */
+
+async function loadOrders() {
+
+  const result =
+    await db
+      .from("orders")
+      .select(`
+        *,
+        order_items (*)
+      `)
+      .order(
+        "created_at",
+        {
+          ascending: false
+        }
+      );
+
+
+  if (
+    result.error
+  ) {
+
+    console.error(
+      "LOAD ORDERS ERROR:",
+      result.error
+    );
+
+
+    setConnectionStatus(
+      false
+    );
+
+
+    showMessage(
+      "Could not load orders."
+    );
+
+    return;
+
+  }
+
+
+  orders =
+    result.data || [];
+
+
+  renderOrders();
+
+}
+
+
+/* =====================================================
+   RENDER PURCHASE ORDERS
+===================================================== */
 
 function renderOrders() {
 
-  var container =
+  const list =
     document.getElementById(
       "ordersList"
     );
 
 
-  var count =
+  const count =
     document.getElementById(
       "orderCount"
     );
@@ -963,9 +1436,11 @@ function renderOrders() {
     );
 
 
-  if (orders.length === 0) {
+  if (
+    orders.length === 0
+  ) {
 
-    container.innerHTML =
+    list.innerHTML =
       '<div class="item empty">' +
       'No purchase orders yet.' +
       '</div>';
@@ -975,365 +1450,105 @@ function renderOrders() {
   }
 
 
-  container.innerHTML = "";
+  list.innerHTML = "";
 
 
-  orders.forEach(function (order) {
+  orders.forEach(
+    function(order) {
 
-    var div =
-      document.createElement(
-        "div"
-      );
-
-
-    div.className =
-      "item";
-
-
-    var itemText =
-      order.items.map(
-        function (item, index) {
-
-          return (
-            (index + 1) +
-            ". " +
-            escapeHtml(item.medicine) +
-            " — Qty " +
-            item.quantity
-          );
-
-        }
-      ).join("<br>");
-
-
-    div.innerHTML =
-
-      '<div class="itemName">' +
-      escapeHtml(order.supplier) +
-      '</div>' +
-
-      '<div class="meta">' +
-      escapeHtml(order.day) +
-      ', ' +
-      formatDate(order.date) +
-      '</div>' +
-
-      '<div class="meta">' +
-      itemText +
-      '</div>' +
-
-      '<div class="actions">' +
-
-      '<button class="orderButton" ' +
-      'onclick="copyOrder(' +
-      order.id +
-      ')">' +
-      'Copy Order' +
-      '</button>' +
-
-      '<button class="delete" ' +
-      'onclick="deleteOrder(' +
-      order.id +
-      ')">' +
-      'Delete' +
-      '</button>' +
-
-      '</div>';
-
-
-    container.appendChild(div);
-
-  });
-
-}
-
-
-/* =========================================
-   COPY ORDER
-========================================= */
-
-function copyOrder(id) {
-
-  var order =
-    orders.find(function (item) {
-
-      return item.id === id;
-
-    });
-
-
-  if (!order) return;
-
-
-  var text =
-    "Faysal Pharmacy\n" +
-    "Purchase Order\n\n" +
-    "Supplier: " +
-    order.supplier +
-    "\n" +
-    "Booking: " +
-    order.day +
-    ", " +
-    formatDate(order.date) +
-    "\n\n";
-
-
-  order.items.forEach(
-    function (item, index) {
-
-      text +=
-        (index + 1) +
-        ". " +
-        item.medicine +
-        " — Qty " +
-        item.quantity +
-        "\n";
-
-    }
-  );
-
-
-  copyText(text);
-
-}
-
-
-/* =========================================
-   COPY TEXT
-========================================= */
-
-function copyText(text) {
-
-  if (
-    navigator.clipboard &&
-    navigator.clipboard.writeText
-  ) {
-
-    navigator.clipboard
-      .writeText(text)
-      .then(function () {
-
-        showMessage(
-          "Order copied. Paste into WhatsApp."
+      const div =
+        document.createElement(
+          "div"
         );
 
-      })
-      .catch(function () {
 
-        oldCopy(text);
+      div.className =
+        "item";
 
-      });
 
-  } else {
+      const itemText =
+        (
+          order.order_items || []
+        )
+        .map(
+          function(item, index) {
 
-    oldCopy(text);
+            return (
 
-  }
+              (index + 1) +
 
-}
+              ". " +
 
+              escapeHtml(
+                item.medicine_name
+              ) +
 
-function oldCopy(text) {
+              " — Qty " +
 
-  var area =
-    document.createElement(
-      "textarea"
-    );
+              item.quantity
 
+            );
 
-  area.value = text;
+          }
+        )
+        .join(
+          "<br>"
+        );
 
-  document.body.appendChild(area);
 
-  area.select();
+      div.innerHTML =
 
-  document.execCommand(
-    "copy"
-  );
+        '<div class="itemName">' +
 
-  document.body.removeChild(area);
+        escapeHtml(
+          order.supplier_name
+        ) +
 
+        '</div>' +
 
-  showMessage(
-    "Order copied."
-  );
 
-}
+        '<div class="meta">' +
 
+        escapeHtml(
+          order.booking_day
+        ) +
 
-/* =========================================
-   DELETE ORDER
-========================================= */
+        ', ' +
 
-function deleteOrder(id) {
+        formatDate(
+          order.booking_date
+        ) +
 
-  if (
-    !confirm(
-      "Delete this purchase order?"
-    )
-  ) {
+        '</div>' +
 
-    return;
 
-  }
+        '<div class="meta">' +
 
+        itemText +
 
-  orders =
-    orders.filter(function (order) {
+        '</div>' +
 
-      return order.id !== id;
 
-    });
+        '<div class="actions">' +
 
 
-  saveData();
+        '<button ' +
+        'class="orderButton" ' +
+        'onclick="copyOrder(' +
+        order.id +
+        ')">' +
 
-  renderOrders();
+        'Copy Order' +
 
-  showMessage(
-    "Order deleted."
-  );
+        '</button>' +
 
-}
 
+        '<button ' +
+        'class="whatsappButton" ' +
+        'onclick="sendWhatsApp(' +
+        order.id +
+        ')">' +
 
-/* =========================================
-   LOCAL STORAGE
-========================================= */
+        'WhatsApp' +
 
-function saveData() {
-
-  localStorage.setItem(
-    "faysal_demands",
-    JSON.stringify(demands)
-  );
-
-
-  localStorage.setItem(
-    "faysal_orders",
-    JSON.stringify(orders)
-  );
-
-}
-
-
-function loadData() {
-
-  try {
-
-    var savedDemands =
-      localStorage.getItem(
-        "faysal_demands"
-      );
-
-
-    var savedOrders =
-      localStorage.getItem(
-        "faysal_orders"
-      );
-
-
-    if (savedDemands) {
-
-      demands =
-        JSON.parse(savedDemands);
-
-    }
-
-
-    if (savedOrders) {
-
-      orders =
-        JSON.parse(savedOrders);
-
-    }
-
-  } catch (error) {
-
-    demands = [];
-
-    orders = [];
-
-  }
-
-}
-
-
-/* =========================================
-   MESSAGE
-========================================= */
-
-var messageTimer;
-
-
-function showMessage(text) {
-
-  var box =
-    document.getElementById(
-      "message"
-    );
-
-
-  box.textContent = text;
-
-  box.style.display = "block";
-
-
-  clearTimeout(messageTimer);
-
-
-  messageTimer =
-    setTimeout(function () {
-
-      box.style.display = "none";
-
-    }, 2500);
-
-}
-
-
-/* =========================================
-   SECURITY
-========================================= */
-
-function escapeHtml(value) {
-
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-
-}
-
-
-/* =========================================
-   DATE FORMAT
-========================================= */
-
-function formatDate(value) {
-
-  if (!value) return "";
-
-
-  var parts =
-    value.split("-");
-
-
-  if (parts.length !== 3) {
-
-    return value;
-
-  }
-
-
-  return (
-    parts[2] +
-    "-" +
-    parts[1] +
-    "-" +
-    parts[0]
-  );
-
-      }
+   
